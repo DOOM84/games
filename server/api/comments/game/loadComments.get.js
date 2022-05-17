@@ -10,13 +10,13 @@ export default defineEventHandler(async (event) => {
 
         const allComments = (await db.collection('comments').doc(id).get()).data();
 
-        let gameComments = [];
+        let comments = [];
 
         const rootComments = allComments && allComments.comments ? allComments.comments : [];
 
         if(rootComments.length){
 
-            gameComments = await Promise.all(rootComments.map(async (comment) => {
+            comments = await Promise.all(rootComments.map(async (comment) => {
 
                 try {
                     const {photoURL} = await admin.auth().getUser(comment.user.id);
@@ -36,9 +36,9 @@ export default defineEventHandler(async (event) => {
             }))
         }
 
-        return {
-            gameComments,
-        }
+        return comments/*{
+            comments,
+        }*/
 
 
     }catch (e) {

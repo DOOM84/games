@@ -1,16 +1,13 @@
 import formidable from "formidable";
 import { firstValues } from 'formidable/src/helpers/firstValues.js';
-import im from 'imagemagick';
 import slugify from "slugify";
 import {
     getFirestore
 } from "firebase-admin/firestore";
 import * as yup from "yup";
 const db = getFirestore();
-import getRandom from "~/helpers/getRandom";
-import setFilePath from "~/helpers/setFilePath";
-import fs from "fs";
-
+import uploadFile from "~/helpers/uploadFile";
+import prepareFileInfo from "~/helpers/prepareFileInfo";
 
 const schema = yup.object({
 
@@ -82,14 +79,66 @@ export default defineEventHandler(async (event) => {
                 added.searchTerms.push(str.substring(0, i));
             }
 
-            await uploadImg(files.file, added, true, files.video);
+            if(files.file){
+
+                const picPath = prepareFileInfo(files.file.newFilename, '/public/img/games/');
+
+                const {mainImage, thumbnail} =  await uploadFile(files.file, '/public/',  {
+                    mainImage: true,
+                    mainImagePath: picPath,
+                    mainImageWidth: 600,
+                    mainImageHeight: null,
+                    thumbnail: true,
+                    thumbnailPath: prepareFileInfo(files.file,
+                        '/public/img/games/thumbnails/',
+                        picPath.substring(picPath.lastIndexOf('/')+1)),
+                    thumbnailWidth: 240,
+                    thumbnailHeight: null,
+                });
+
+                added.image = mainImage.substring(mainImage.indexOf('/img'));
+
+                added.thumbnail = thumbnail.substring(thumbnail.indexOf('/img'));
+            }
 
             if(keys.length){
-                added.images = [];
-                await Promise.all(keys.map(async (key) => {
-                    await uploadImg(files[key], added, false, null);
+
+                const images = await Promise.all(keys.map(async (key, index) => {
+
+                    const picPath = prepareFileInfo(files[key].newFilename, '/public/img/games/pics/');
+
+                    return await uploadFile(files[key], '/public/', {
+                        multipleImages: true,
+                        multipleImagesPath: picPath,
+                        multipleImagesWidth: 1920,
+                        multipleImagesHeight: null,
+                        multipleImagesThumbnail: true,
+                        multipleImagesThumbnailPath: prepareFileInfo(files.file,
+                            '/public/img/games/pics/thumbnails/',
+                            picPath.substring(picPath.lastIndexOf('/')+1)),
+                        multipleImagesThumbnailWidth: 240,
+                        multipleImagesThumbnailHeight: null
+                    });
                 }))
+
+                added.images = images.map((image)=>{
+
+                    image.pic = image.pic.substring(image.pic.indexOf('/img'));
+                    image.thumbnail = image.picThumbnail.substring(image.picThumbnail.indexOf('/img'));
+
+                    return {pic : image.pic, thumbnail: image.thumbnail}
+                })
             }
+
+            if(files.video){
+
+                const {newPath} = await uploadFile(files.video, '/public/videos/');
+
+                added.video = newPath.substring(newPath.indexOf('/videos'));
+
+            }
+
+            await db.collection('games').doc(added.slug).set(added);
 
             return {result: added};
 
@@ -112,78 +161,3 @@ export default defineEventHandler(async (event) => {
     }
 
 })
-
-async function uploadImg(file, added, mainImg = false, video){
-
-    let uploadPath = file.filepath;
-    let fileName = file.newFilename;
-    let ext = fileName.substring(fileName.indexOf('.') + 1);
-
-    let nameWithSalt = Date.now() + getRandom(10000000, 1) + (+new Date).toString(36).slice(-5);
-
-    let newPath = setFilePath('/public/img/games/' + nameWithSalt + '.' + ext);
-    let thumbnail = setFilePath('/public/img/games/thumbnails/'+ nameWithSalt + '.' + ext);
-    let picPath = setFilePath('/public/img/games/pics/' + nameWithSalt + '.' + ext);
-    let picThumbPath = setFilePath('/public/img/games/pics/thumbnails/' + nameWithSalt + '.' + ext);
-
-    if(video){
-        const fsPromises = fs.promises;
-        let oldVideoPath = video.filepath;
-        let videoFileName = video.newFilename;
-        let videoExt = videoFileName.substring(videoFileName.indexOf('.') + 1);
-        let videoNameWithSalt = Date.now() + getRandom(10000000, 1) + (+new Date).toString(36).slice(-5);
-        let newVideoPath = setFilePath('/public/videos/' + videoNameWithSalt + '.' + videoExt);
-        added.video = newVideoPath.substring(newVideoPath.indexOf('/videos'));
-
-        await fsPromises.rename(oldVideoPath, newVideoPath);
-    }
-
-    if(mainImg){
-        added.image = newPath.substring(newPath.indexOf('/img'));
-        added.thumbnail = thumbnail.substring(thumbnail.indexOf('/img'));
-
-        im.resize({
-            srcPath: uploadPath,
-            dstPath: newPath,
-            width:   600,
-        }, function(err, stdout, stderr){
-            if (err) throw err;
-        });
-
-
-        im.resize({
-            srcPath: uploadPath,
-            dstPath: thumbnail,
-            width:   240,
-        }, function(err, stdout, stderr){
-            if (err) throw err;
-        });
-
-        await db.collection('games').doc(added.slug).set(added);
-
-
-    }else{
-        added.images.push({pic: picPath.substring(picPath.indexOf('/img')),
-            thumbnail: picThumbPath.substring(picThumbPath.indexOf('/img'))});
-
-        im.resize({
-            srcPath: uploadPath,
-            dstPath: picPath,
-            width:   1920,
-        }, function(err, stdout, stderr){
-            if (err) throw err;
-        });
-
-        im.resize({
-            srcPath: uploadPath,
-            dstPath: picThumbPath,
-            width:   240,
-        }, function(err, stdout, stderr){
-            if (err) throw err;
-        });
-
-        await db.collection('games').doc(added.slug).update({images: added.images});
-    }
-
-}
-

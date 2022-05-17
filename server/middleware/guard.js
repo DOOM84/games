@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
         const {token} = useCookies(event);
 
          try {
-            const {access} = await $fetch('/api/check', {params: {token: token}});
+            const {access} = await $fetch('/api/check', {params: {token: useCookies(event).token}});
 
             if (!access) {
                 await Promise.reject(Error('No access'));

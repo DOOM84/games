@@ -2,6 +2,7 @@
   <div v-if="game && game.video"
        @mouseover="playVid"
        @mouseleave="stopVid" class="game-container">
+    <ClientOnly>
     <video-background
         ref="videoB"
         :muted="true"
@@ -10,6 +11,7 @@
         :autoplay="false"
         :poster="game.image"
     />
+    </ClientOnly>
     <div class="platforms-box">
       <div class="platforms">
         <i v-for="platform in game.platforms" :class="platform.class"></i>

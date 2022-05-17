@@ -1,44 +1,33 @@
-import getCookie from "~/helpers/getCookie";
-//import { useState } from '#app';
-//import {useState} from "nuxt3/dist/app";
-
 export default defineNuxtPlugin(async ({ssrContext, $logOut}) => {
     const router = useRouter();
-    let token = null;
     const isLoggedIn = useLoggedIn();
     const user = useUserInfo();
     const isAdmin = useUserAdmin();
+    const authToken = useTokenAuth();
 
 
     if (process.server && ssrContext) {
 
-        //console.log('aaa');
-
         const {res, url} = ssrContext;
 
         const {path} = router.resolve(url);
-
-        token = getCookie(ssrContext.req.headers.cookie, 'token');
 
         const toName = path.split("/");
 
         try {
 
             if ((toName[1] === 'admin')) {
-                try {
-                    if (!token) {
-                        await Promise.reject(Error());
-                    }
 
-                    const {access} = await $fetch('/api/check',
-                        {params: {token: token}})
+                try {
+                    const {access} = await $fetch('/api/check', {
+                        headers: useRequestHeaders(["cookie"]),
+                    });
 
                     if (!access) {
                         await Promise.reject(Error());
                     } else {
-                        await getUser(token, isLoggedIn, user)
-                        isAdmin.value = access;
-                        //isAdmin.value = true;
+                        isAdmin.value = true;
+                        await getUser(isLoggedIn, user);
                     }
 
                 } catch (e) {
@@ -48,13 +37,21 @@ export default defineNuxtPlugin(async ({ssrContext, $logOut}) => {
                 }
             }
 
-            else if ((toName[1] === 'auth' && token)) {
-                ssrContext.res.writeHead(302, {Location: '/'});
-                ssrContext.res.end();
-            }
+             else if ((toName[1] === 'auth')) {
+                try {
 
-            else{
-                await getUser(token, isLoggedIn, user)
+                    await getUser(isLoggedIn, user);
+
+                    if (isLoggedIn.value) {
+                        ssrContext.res.writeHead(302, {Location: '/'});
+                        ssrContext.res.end();
+                    }
+
+                } catch (e) {
+                    //console.log(e);
+                }
+            } else {
+                await getUser(isLoggedIn, user);
             }
 
         }catch (e) {
@@ -72,9 +69,11 @@ export default defineNuxtPlugin(async ({ssrContext, $logOut}) => {
 
             if ((toName[1] === 'admin')) {
                 try {
+                    if (!authToken.value) {
+                        return next('/404');
+                    }
 
-                    const {access} = await $fetch('/api/check',
-                        {params: {token: token}})
+                    const {access} = await $fetch('/api/check')
 
                     if (!access) {
                         return next('/404');
@@ -85,6 +84,7 @@ export default defineNuxtPlugin(async ({ssrContext, $logOut}) => {
 
                 } catch (e) {
                     return next('/404');
+                    //console.log(e);
                 }
             }
 
@@ -94,15 +94,17 @@ export default defineNuxtPlugin(async ({ssrContext, $logOut}) => {
     }
 });
 
-async function getUser(token, isLoggedIn, user){
-    const data = await $fetch('/api/user',
-        {params: {token: token}});
+async function getUser(isLoggedIn, user){
+
+    const data = await $fetch('/api/user', {
+        headers: useRequestHeaders(["cookie"]),
+    });
 
     if (data) {
         isLoggedIn.value = true;
         user.value = {
             name: data.login,
-            avatar: data.avatar //data.avatar ? data.avatar.substring(data.avatar.lastIndexOf('/') + 1) : null
+            avatar: data.avatar
         };
     }
 }

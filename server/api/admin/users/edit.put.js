@@ -2,8 +2,6 @@ import admin from "firebase-admin";
 import formidable from "formidable";
 import {firstValues} from 'formidable/src/helpers/firstValues.js';
 import * as yup from 'yup';
-import getRandom from "~/helpers/getRandom";
-import im from "imagemagick";
 import {
     getFirestore
 } from "firebase-admin/firestore";
@@ -11,6 +9,8 @@ import {
 const db = getFirestore();
 import fs from "fs";
 import setFilePath from "~/helpers/setFilePath";
+import prepareFileInfo from "~/helpers/prepareFileInfo";
+import uploadFile from "~/helpers/uploadFile";
 
 const schema = yup.object({
     updated: yup.object({
@@ -67,7 +67,7 @@ export default defineEventHandler(async (event) => {
 
             let newPath;
 
-            const oldAvaPath = '/img/avatars/' + updated.photoURL.substring(updated.photoURL.lastIndexOf('/') + 1);
+            const oldAvaPath = updated.photoURL.substring(updated.photoURL.indexOf('/img'));
 
             if (files.file) {
 
@@ -78,26 +78,18 @@ export default defineEventHandler(async (event) => {
                     }
                 }
 
-                let oldPath = files.file.filepath;
-                let fileName = files.file.newFilename;
-                let ext = fileName.substring(fileName.indexOf('.') + 1);
-                let nameWithSalt = Date.now() + getRandom(10000000, 1) + (+new Date).toString(36).slice(-5);
+                const picPath = prepareFileInfo(files.file.newFilename, '/public/img/avatars/');
 
-                newPath = setFilePath('/public/img/avatars/' + nameWithSalt + '.' + ext);
-
-                updated.photoURL = event.req.headers.origin + newPath.substring(newPath.indexOf('/img'));
-
-                im.resize({
-                    srcPath: oldPath,
-                    dstPath: newPath,
-                    width: 80,
-                    height: "80^",
-                    customArgs: [
-                        "-gravity", "center", "-extent", "80x80"
-                    ]
-                }, function (err, stdout, stderr) {
-                    if (err) throw err;
+                const {mainImage} =  await uploadFile(files.file, '/public/',  {
+                    mainImage: true,
+                    mainImagePath: picPath,
+                    mainImageWidth: 80,
+                    mainImageHeight: 80
                 });
+
+                newPath = mainImage.substring(mainImage.indexOf('/img'));
+
+                updated.photoURL = event.req.headers.origin + newPath;
 
             }
 
@@ -114,10 +106,9 @@ export default defineEventHandler(async (event) => {
 
             await db.collection('users').doc(updatedUser.uid)
                 .update({
-                    avatar: newPath ? newPath.substring(newPath.indexOf('/img')) : oldAvaPath,
+                    avatar: newPath ? newPath : oldAvaPath,
                     login: updated.displayName
                 });
-
 
             const result = {
                 email: updatedUser.email,
@@ -125,7 +116,7 @@ export default defineEventHandler(async (event) => {
                 disabled: updatedUser.disabled,
                 customClaims: updatedUser.customClaims ? updatedUser.customClaims : {admin: false},
                 uid: updatedUser.uid,
-                photoURL: updatedUser.photoURL,
+                photoURL: newPath,
             }
 
             return {result: result}

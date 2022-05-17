@@ -75,6 +75,10 @@ const authToken = useTokenAuth();
 const isLoggedIn = useLoggedIn();
 const user = useUserInfo();
 
+useHead({
+  title: 'Games portal - Авторизация'
+})
+
 const showMode = computed(() =>
     mode.value === 'signup' ? 'Регистрация' : mode.value === 'login' ? 'Войти' : 'Сбросить пароль');
 
@@ -181,8 +185,6 @@ async function authorize() {
       mode.value = 'login';
     }
   } catch (error) {
-
-    console.log(error);
 
     showIcon.value = false;
     err.value = true;

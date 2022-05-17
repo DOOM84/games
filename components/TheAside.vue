@@ -25,19 +25,24 @@
           Рецензии
         </NuxtLink>
       </div>
-      <div class="title-link">
-        <span>Жанры</span>
-      </div>
-      <NuxtLink v-if="data.genres" v-for="genre in data.genres" class="mb-1 sub-link" :to="'/genre/'+genre.id">
-        {{ genre.name }}
-      </NuxtLink>
+      <template v-if="data">
+        <div class="title-link">
+          <span>Жанры</span>
+        </div>
+        <NuxtLink v-for="genre in data.genres" class="mb-1 sub-link" :to="'/genre/'+genre.id">
+          {{ genre.name }}
+        </NuxtLink>
+      </template>
+
     </div>
   </aside>
 </template>
 
 <script setup>
 
-import {ref, watch, onMounted} from "vue";
+import {ref, watch} from "vue";
+
+const { pending, data } = useLazyFetch('/api/genres')
 
 const isLoggedIn = useLoggedIn();
 const user = useUserInfo();
@@ -45,7 +50,6 @@ const sideNav = ref(null);
 const hideNav = ref(null);
 const overlay = ref(null);
 const avaUpload = ref(false);
-const data = ref({});
 
 const emit = defineEmits(['toggleNav'])
 
@@ -56,12 +60,6 @@ const props = defineProps({
 watch(() => props.navToggle, (value) => {
   value ? openNav() : closeNav();
 });
-
-
-onMounted(async () => {
-  const {genres} = await $fetch('/api/genres');
-  data.value.genres = genres;
-})
 
 function openNav() {
   sideNav.value.style.left = "0px";

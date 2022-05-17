@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
             resUsers.push({
                 email: user.email,
                 displayName: user.displayName,
-                photoURL: user.photoURL,
+                photoURL: user.photoURL.substring(user.photoURL.indexOf('/img')),
                 disabled: user.disabled,
                 customClaims:  user.customClaims ? user.customClaims : {admin:false},
                 uid: user.uid

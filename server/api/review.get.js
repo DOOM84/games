@@ -13,7 +13,11 @@ export default defineEventHandler(async (event) => {
 
         if(!reviewsSnap.size){
 
-            throw new Error();
+            const e = new Error('Not found');
+            e.code = '404';
+            e.statusCode = 404;
+
+            await Promise.reject(e);
         }
 
         const gameReviews = reviewsSnap.docs.map((doc) => {

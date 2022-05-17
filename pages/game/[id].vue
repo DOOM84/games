@@ -1,38 +1,52 @@
 <template>
   <div>
-    <h1 v-if="data.game" class="cat-title mb-1">{{ data.game.name }}</h1>
 
-    <TheRating v-if="data.game" :userRate="data.game.userRate" @rateChanged="rateChanged"/>
-
-    <TheGameInfo v-if="data.game" :game="data.game"/>
-
-    <div v-else class="center">
+    <div v-if="pending || error" class="center">
       <i class="fas fa-circle-notch fa-spin fa-3x grey"></i>
     </div>
 
-    <TheComments v-if="data.game"></TheComments>
+    <div v-else>
+
+        <h1 class="cat-title mb-1">{{ data.game.name }}</h1>
+
+        <TheRating :userRate="data.game.userRate" @rateChanged="rateChanged"/>
+
+        <TheGameInfo :game="data.game"/>
+
+        <TheComments />
+
+    </div>
 
   </div>
 </template>
 
 <script setup>
-import {ref, onMounted} from 'vue';
-
 const route = useRoute();
 
-const data = ref({});
+const router = useRouter();
 
 function rateChanged(rate) {
   data.value.game.userRate = rate;
 }
 
-onMounted((async () => {
+const {data, error, pending} = await useLazyAsyncData('game', () => $fetch('/api/game',
+    {params: {id: route.params.id}}), {initialCache: false})
 
-  const {game} = await $fetch('/api/game', {params: {id: route.params.id}});
+if (process.server && error?.value) {
+  throwError(error.value)
+}
 
-  data.value.game = game;
+watch(error, (newError) => {
+  if(!!newError){
+    router.replace('/404')
+  }
+})
 
-}))
+const title = computed(() => 'Games portal - Игра - ' + (data.value ? data.value.game.name : '') )
+
+useHead({
+  title: title
+})
 
 </script>
 

@@ -1,38 +1,39 @@
 <template>
   <div>
-    <h1 class="pb-1 cat-title mb-2">Рецензии {{reviewTitle}}</h1>
 
-    <h2 class="underline pointer" @click="openReview(i)" v-if="reviews.length" v-for="(review, i) in reviews">
-      {{review.title}}
-    </h2>
-    <div v-else class="center">
+    <div v-if="pending || error" class="center">
       <i  class="fas fa-circle-notch fa-spin fa-3x grey"></i>
     </div>
 
-    <div class="review-container mt-5">
-        <div id="review">
-          <transition name="bio">
-            <div v-if="reviewContent || reviewInfo">
-              <div v-if="reviewContent"  class="review-content" v-html="reviewContent" />
-              <div class="right" v-if="reviewInfo" v-html="reviewInfo"></div>
-            </div>
+    <div v-else>
+      <h1 class="pb-1 cat-title mb-2">Рецензии {{reviewTitle}}</h1>
+      <h2 class="underline pointer" @click="openReview(i)" v-for="(review, i) in data.gameReviews">
+        {{review.title}}
+      </h2>
+    </div>
 
-          </transition>
-        </div>
+
+    <div class="review-container mt-5">
+      <div id="review">
+        <transition name="bio">
+          <div v-if="reviewContent || reviewInfo">
+            <div v-if="reviewContent"  class="review-content" v-html="reviewContent" />
+            <div class="right" v-if="reviewInfo" v-html="reviewInfo"></div>
+          </div>
+
+        </transition>
+      </div>
 
       <TheComments v-if="commentsForReview"></TheComments>
     </div>
-
 
   </div>
 </template>
 
 <script setup>
-import {ref, onMounted, onUnmounted, computed} from 'vue';
+import {ref, onUnmounted, computed} from 'vue';
 
 const {$scrollTo} = useNuxtApp();
-
-const reviews = ref([]);
 
 const reviewContent = ref('');
 
@@ -40,25 +41,41 @@ const reviewInfo = ref('');
 
 const route = useRoute();
 
-const  commentsForReview = useCommentsToggle();
+const router = useRoute();
 
-const reviewTitle = computed(() => reviews.value.length ? reviews.value[0].gameName : '');
+const  commentsForReview = useCommentsToggle();
 
 const parentId = useParentAnswer();
 
 const parentInfo = useParentInfo();
 
-onMounted((async () => {
+const {data, error, pending} = await useLazyAsyncData('review', () => $fetch('/api/review', {params: {id: route.params.id}}),
+    {initialCache: false});
 
-    const {gameReviews} = await $fetch('/api/review', {params: {id: route.params.id}});
+if (process.server && error?.value) {
+  throwError(error.value)
+}
 
-    reviews.value = gameReviews;
+watch(error, (newError) => {
+  if(!!newError){
+    router.replace('/404')
+  }
+})
 
-    if(route.params.ind){
-      openReview(route.params.ind)
-    }
 
-}))
+watch(data, (newData) => {
+  // Because posts starts out null, you won't have access
+  // to its contents immediately, but you can watch it.
+  openReview(route.params.ind)
+})
+
+const reviewTitle = computed(() =>data.value && data.value.gameReviews && data.value.gameReviews.length ? data.value.gameReviews[0].gameName : '');
+
+
+useHead({
+  title: 'Games portal - Рецензии - ' + reviewTitle.value
+})
+
 
 onUnmounted(()=>{
   commentsForReview.value = null
@@ -66,20 +83,21 @@ onUnmounted(()=>{
 
 function openReview(i){
 
-
-  if(reviews.value[i].id === commentsForReview.value){return}
+  if(i === undefined || (data.value && data.value.gameReviews[i].id === commentsForReview.value)){return}
 
   parentInfo.value = null;
   parentId.value = null;
 
-  commentsForReview.value = reviews.value[i].id;
+  if(data.value && data.value.gameReviews[i].id){
+    commentsForReview.value = data.value.gameReviews[i].id;
+  }
 
   reviewContent.value = '';
   reviewInfo.value = '';
 
   setTimeout(()=>{
-    reviewContent.value = reviews.value[i].text;
-    reviewInfo.value = `<span>${reviews.value[i].author} <a target="_blank" href="${reviews.value[i].source}">Источник</a></span>`
+    reviewContent.value = data.value.gameReviews[i].text;
+    reviewInfo.value = `<span>${data.value.gameReviews[i].author} <a target="_blank" href="${data.value.gameReviews[i].source}">Источник</a></span>`
   }, 500)
 
   $scrollTo('#review', 800, {offset: -50});

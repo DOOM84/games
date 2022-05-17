@@ -6,6 +6,9 @@
 
 <script setup>
 
+useHead({
+  title: 'Games portal - Welcome!'
+})
 
 </script>
 

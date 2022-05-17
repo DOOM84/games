@@ -11,7 +11,7 @@ export default defineNuxtPlugin(nuxtApp => {
 
         isAdmin.value = false;
         isLoggedIn.value = false;
-        authToken.value = false;
+        authToken.value = null;
         user.value = null;
 
         await $fetch('/api/signout')

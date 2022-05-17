@@ -1,16 +1,18 @@
 <template>
   <div>
-    <h1 class="pb-1 cat-title mb-2">
-      <slot></slot> {{data.genre}}
-    </h1>
-    <div v-if="data.games" class="games-box">
-      <TheGamesItem v-for="(game, i) in data.games" :game="game"></TheGamesItem>
-    </div>
-    <div v-else class="center">
+    <div v-if="pending || error" class="center">
       <i class="fas fa-circle-notch fa-spin fa-3x grey"></i>
     </div>
-    <div v-if="showLoader" class="center">
-      <i class="fas fa-circle-notch fa-spin fa-4x"></i>
+    <div v-else>
+      <h1 class="pb-1 cat-title mb-2">
+        <slot></slot> {{data.genreName}}
+      </h1>
+      <div class="games-box">
+        <TheGamesItem v-for="(game, i) in data.games" :game="game"></TheGamesItem>
+      </div>
+      <div v-if="showLoader" class="center">
+        <i class="fas fa-circle-notch fa-spin fa-4x"></i>
+      </div>
     </div>
   </div>
 </template>
@@ -18,11 +20,34 @@
 <script setup>
 import {ref, onMounted, onUnmounted} from 'vue';
 
-const data = ref({genre: ''});
+//const data = ref({genre: ''});
 const scrollDebounce = ref(true);
 const showLoader = ref(false)
 
 const route = useRoute();
+
+const router = useRouter();
+
+const {data, error, pending} = await useLazyAsyncData('main', () => $fetch('/api/main',
+    {params: {genre: route.params.id}}), {initialCache: false})
+
+if (process.server && error?.value) {
+  throwError(error.value)
+}
+
+watch(error, (newError) => {
+  if(!!newError){
+    router.replace('/404')
+  }
+})
+
+const title = computed(() => 'Games portal - ' + (data.value && data.value.genreName ?
+    ' Игры с жанром - ' + data.value.genreName  : 'Welcome!'))
+
+useHead({
+  title: title
+})
+
 
 const handleScroll = async (e) => {
 
@@ -61,12 +86,7 @@ async function loadGames() {
   showLoader.value = false;
 }
 
-onMounted((async () => {
-
-  const {games, genreName} = await $fetch('/api/main', {params: {genre: route.params.id}});
-
-  data.value.games = games;
-  data.value.genre = genreName;
+onMounted((() => {
 
   setTimeout(() => {
     window.addEventListener("scroll", handleScroll)

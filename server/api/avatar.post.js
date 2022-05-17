@@ -2,14 +2,14 @@ import fs from "fs";
 import formidable from "formidable";
 import { firstValues } from 'formidable/src/helpers/firstValues.js';
 import admin from 'firebase-admin';
-import getRandom from "~/helpers/getRandom";
 import setFilePath from "~/helpers/setFilePath";
 import {
     getFirestore
 } from "firebase-admin/firestore";
 const db = getFirestore();
-import im from "imagemagick";
 import * as yup from "yup";
+import prepareFileInfo from "~/helpers/prepareFileInfo";
+import uploadFile from "~/helpers/uploadFile";
 
 
 const fileSchema = yup.object().shape({
@@ -51,7 +51,7 @@ export default defineEventHandler(async (event) => {
 
             const {photoURL} = await admin.auth().getUser(uid);
 
-            const oldAvaPath = '/img/avatars/'+photoURL.substring(photoURL.lastIndexOf('/')+1);
+            const oldAvaPath = photoURL.substring(photoURL.indexOf('/img'));
 
             if (oldAvaPath !== '/img/avatars/no_avatar.png') {
 
@@ -60,25 +60,16 @@ export default defineEventHandler(async (event) => {
                 }
             }
 
-            let oldPath = files.avatar.filepath;
-            let fileName = files.avatar.newFilename;
-            let ext = fileName.substring(fileName.indexOf('.') + 1);
-            let nameWithSalt = Date.now() + getRandom(10000000, 1) + (+new Date).toString(36).slice(-5);
+            const picPath = prepareFileInfo(files.avatar.newFilename, '/public/img/avatars/');
 
-            const newPath = setFilePath('/public/img/avatars/' + nameWithSalt + '.' + ext);
-            const newPhotoURL = event.req.headers.origin + newPath.substring(newPath.indexOf('/img'));
-
-            im.resize({
-                srcPath: oldPath,
-                dstPath: newPath,
-                width : 80,
-                height : "80^",
-                customArgs: [
-                    "-gravity", "center", "-extent", "80x80"
-                ]
-            }, function (err, stdout, stderr) {
-                if (err) throw err;
+            const {mainImage} =  await uploadFile(files.avatar, '/public/',  {
+                mainImage: true,
+                mainImagePath: picPath,
+                mainImageWidth: 80,
+                mainImageHeight: 80
             });
+
+            const newPhotoURL = event.req.headers.origin + mainImage.substring(mainImage.indexOf('/img'));
 
             await admin.auth().updateUser(uid, {
                 photoURL: newPhotoURL,
@@ -86,7 +77,7 @@ export default defineEventHandler(async (event) => {
 
             await db.collection('users').doc(uid)
                 .update({
-                    avatar: newPath.substring(newPath.indexOf('/img'))
+                    avatar: mainImage.substring(mainImage.indexOf('/img'))
                 });
 
             return {msg: 'File uploaded and moved!', path: newPhotoURL /*newPath.substring(6)*/}

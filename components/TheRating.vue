@@ -1,18 +1,21 @@
 <template>
   <div>
-    <star-rating :increment="0.1"
-                 v-model:rating="userRate"
-                 @update:rating="setRating"
-                 :show-rating="false"
-                 :star-size="40"
-                 :glow="10"
-                 :read-only="!isLoggedIn"
-                 glow-color="#ffd055"
-    />
+    <ClientOnly>
+      <star-rating :increment="0.1"
+                   v-model:rating="userRate"
+                   @update:rating="setRating"
+                   :show-rating="false"
+                   :star-size="40"
+                   :glow="10"
+                   :read-only="!isLoggedIn"
+                   glow-color="#ffd055"
+      />
+    </ClientOnly>
   </div>
 </template>
 
 <script setup>
+
 const isLoggedIn = useLoggedIn();
 const route = useRoute();
 const {$showToast, $logOut} = useNuxtApp();

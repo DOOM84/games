@@ -2,12 +2,11 @@ import admin from "firebase-admin";
 import formidable from "formidable";
 import { firstValues } from 'formidable/src/helpers/firstValues.js';
 import * as yup from 'yup';
-import getRandom from "~/helpers/getRandom";
-import im from "imagemagick";
 import {
     getFirestore
 } from "firebase-admin/firestore";
-import setFilePath from "~/helpers/setFilePath";
+import prepareFileInfo from "~/helpers/prepareFileInfo";
+import uploadFile from "~/helpers/uploadFile";
 const db = getFirestore();
 
 const schema = yup.object({
@@ -67,24 +66,17 @@ export default defineEventHandler(async (event) => {
             let avaPath = '/img/avatars/no_avatar.png';
 
             if(files.file){
-                let oldPath = files.file.filepath;
-                let fileName = files.file.newFilename;
-                let ext = fileName.substring(fileName.indexOf('.') + 1);
-                let nameWithSalt = Date.now() + getRandom(10000000, 1) + (+new Date).toString(36).slice(-5);
-                let newPath = setFilePath('/public/img/avatars/' + nameWithSalt + '.' + ext);
-                avaPath = newPath.substring(newPath.indexOf('/img'));
+                const picPath = prepareFileInfo(files.file.newFilename, '/public/img/avatars/');
 
-                im.resize({
-                    srcPath: oldPath,
-                    dstPath: newPath,
-                    width : 80,
-                    height : "80^",
-                    customArgs: [
-                        "-gravity", "center", "-extent", "80x80"
-                    ]
-                }, function (err, stdout, stderr) {
-                    if (err) throw err;
+                const {mainImage} =  await uploadFile(files.file, '/public/',  {
+                    mainImage: true,
+                    mainImagePath: picPath,
+                    mainImageWidth: 80,
+                    mainImageHeight: 80
                 });
+
+                avaPath = mainImage.substring(mainImage.indexOf('/img'));
+
             }
 
             const userRecord = await admin.auth().createUser(
@@ -104,7 +96,7 @@ export default defineEventHandler(async (event) => {
             const result = {
                 email: createdUser.email,
                 displayName: createdUser.displayName,
-                photoURL: createdUser.photoURL,
+                photoURL: avaPath,
                 disabled: createdUser.disabled,
                 customClaims: createdUser.customClaims ? createdUser.customClaims : {admin: false},
                 uid: createdUser.uid,

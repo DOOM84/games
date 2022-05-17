@@ -6,11 +6,7 @@ import {
 
 export default defineEventHandler(async (event) => {
     try {
-        let {token} = useQuery(event)
-
-        if (!token) {
-            token = useCookie(event.req, 'token')
-        }
+        const token = useCookie(event.req, 'token') || useQuery(event).token;
 
         const {uid} = await admin.auth().verifyIdToken(token);
 

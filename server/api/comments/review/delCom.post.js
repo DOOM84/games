@@ -80,7 +80,7 @@ export default defineEventHandler(async (event) => {
         await db.collection('reviewComments').doc(id).set(allComments);
 
 
-        const {gameComments} = await $fetch('/api/comments/review/loadComments',
+        const gameComments = await $fetch('/api/comments/review/loadComments',
             {params: {id: id}})
 
 

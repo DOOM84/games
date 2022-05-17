@@ -83,7 +83,6 @@ async function loadChild() {
 
 }
 
-
 async function delCom() {
   if (confirm('Are you sure?')) {
 

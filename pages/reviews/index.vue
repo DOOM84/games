@@ -1,58 +1,55 @@
 <template>
   <div>
     <h1 class="pb-1 cat-title mb-2">Рецензии</h1>
-    <div v-if="games.length" class="review-box">
-      <div v-for="game in games" class="review-item mb-1">
+    <div v-if="pending || error" class="center">
+      <i class="fas fa-circle-notch fa-spin fa-3x grey"></i>
+    </div>
+    <div v-else class="review-box">
+      <div v-for="game in data.reviewGames" class="review-item mb-1">
         <img :src="game.thumbnail" alt="">
         <div>
-          <NuxtLink :to="'/reviews/'+game.slug">{{game.name}}</NuxtLink>
+          <NuxtLink :to="'/reviews/'+game.slug">{{ game.name }}</NuxtLink>
         </div>
       </div>
-      <div v-if="games.length >= 12" class="center">
+      <div v-if="data.reviewGames.length >= 12" class="center">
         <button @click="loadReviews" class="center btn btn-dark">
           <i v-if="showLoader" class="fas fa-circle-notch fa-spin"></i>
           <span v-else>Загрузить еще</span>
         </button>
       </div>
     </div>
-    <div v-else class="center">
-      <i class="fas fa-circle-notch fa-spin fa-3x grey"></i>
-    </div>
-
   </div>
 </template>
 
 <script setup>
-import {ref, onMounted} from 'vue';
+import {ref} from 'vue';
 
-const games = ref([]);
+useHead({
+  title: 'Games portal - Рецензии'
+})
 
-onMounted((async () => {
+const {data, error, pending} = await useLazyAsyncData('reviews', () => $fetch('/api/reviews'),
+    {initialCache: false})
 
-  const {reviewGames} = await $fetch('/api/reviews');
-
-  games.value = reviewGames
-
-}))
 
 const showLoader = ref(false);
 
 const canLoad = ref(true);
 
-async function loadReviews(){
+async function loadReviews() {
 
-  if(!canLoad.value){
+  if (!canLoad.value) {
     return
   }
 
   showLoader.value = true;
 
   const {reviewGames} = await $fetch('/api/loadReviews',
-      {params: {offset: games.value.length}});
+      {params: {offset: data.value.reviewGames.length}});
 
-  if(reviewGames.length){
-    games.value.push(...reviewGames);
-  }else{
+  if (reviewGames.length) {
+    data.value.reviewGames.push(...reviewGames);
+  } else {
     canLoad.value = false
   }
   showLoader.value = false;
@@ -62,10 +59,6 @@ async function loadReviews(){
 </script>
 
 <style lang="scss" scoped>
-
-
-
-
 
 
 </style>

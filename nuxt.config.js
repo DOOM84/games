@@ -2,21 +2,6 @@ import {defineNuxtConfig} from 'nuxt'
 
 export default defineNuxtConfig({
 
-    /*build: {
-        publicPath: '/_nuxt' // now app.buildAssetsPath
-    },*/
-    router: {
-        base: '/' // now app.basePath
-    },
-    app: {
-        base: '/',
-        buildAssetsPath: '/_nuxt/',
-        // optionally
-        // cdnURL: 'https://mycdn.org/'
-    },
-
-    //vite: false,
-
     meta: {
         title: 'Games portal',
         meta: [

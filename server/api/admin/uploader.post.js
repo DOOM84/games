@@ -1,11 +1,9 @@
-import fs from "fs";
 import formidable from "formidable";
 import {firstValues} from 'formidable/src/helpers/firstValues.js';
-import setFilePath from "~/helpers/setFilePath";
+import prepareFileInfo from "~/helpers/prepareFileInfo";
+import uploadFile from "~/helpers/uploadFile";
 
 export default defineEventHandler(async (event) => {
-
-    const fsPromises = fs.promises;
 
     const form = formidable({
         encoding: 'utf-8',
@@ -28,25 +26,24 @@ export default defineEventHandler(async (event) => {
     } else {
 
         try {
-            let oldPath = files.upload.filepath;
-            let fileName = files.upload.newFilename;
-            let ext = fileName.substring(fileName.indexOf('.') + 1);
 
-            let salt = (+new Date).toString(36).slice(-5);
+            const picPath = prepareFileInfo(files.upload.newFilename, '/public/img/uploads/');
 
-            const uploadedName = Date.now() + salt + '.' + ext
-
-            let newPath = setFilePath('/public/img/uploads/' + uploadedName);
-
-            await fsPromises.rename(oldPath, newPath);
+            const {mainImage} =  await uploadFile(files.upload, '/public/',  {
+                mainImage: true,
+                mainImagePath: picPath,
+                mainImageWidth: null,
+                mainImageHeight: null,
+            });
 
             return {
-                fileName: uploadedName,
+                fileName: picPath.substring(picPath.lastIndexOf('/')+1),
                 uploaded: 1,
-                url: newPath.substring(newPath.indexOf('/img'))
+                url: picPath.substring(picPath.indexOf('/img'))
             }
 
         } catch (e) {
+            console.log(e);
             event.res.setHeader('Content-Type', 'application/json');
             event.res.statusCode = 401;
             event.res.end(JSON.stringify({msg: 'Ошибка! Вы не авторизованы!'}));

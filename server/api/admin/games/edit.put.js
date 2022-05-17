@@ -5,10 +5,10 @@ import {
 } from "firebase-admin/firestore";
 import * as yup from "yup";
 const db = getFirestore();
-import getRandom from "~/helpers/getRandom";
 import setFilePath from "~/helpers/setFilePath";
 import fs from "fs";
-import im from "imagemagick";
+import uploadFile from "~/helpers/uploadFile";
+import prepareFileInfo from "~/helpers/prepareFileInfo";
 
 
 const schema = yup.object({
@@ -54,19 +54,15 @@ export default defineEventHandler(async (event) => {
             });
 
             if (files.video) {
-                const fsPromises = fs.promises;
 
                 if (fs.existsSync(setFilePath('/public' + added.video))) {
                     fs.unlinkSync(setFilePath('/public' + added.video));
                 }
 
-                let oldVideoPath = files.video.filepath;
-                let videoFileName = files.video.newFilename;
-                let videoExt = videoFileName.substring(videoFileName.indexOf('.') + 1);
-                let videoNameWithSalt = Date.now() + getRandom(10000000, 1) + (+new Date).toString(36).slice(-5);
-                let newVideoPath = setFilePath('/public/videos/' + videoNameWithSalt + '.' + videoExt);
-                added.video = newVideoPath.substring(newVideoPath.indexOf('/videos'));
-                await fsPromises.rename(oldVideoPath, newVideoPath);
+                const {newPath} = await uploadFile(files.video, '/public/videos/');
+
+                added.video = newPath.substring(newPath.indexOf('/videos'));
+
             }
 
             if (files.file) {
@@ -77,16 +73,62 @@ export default defineEventHandler(async (event) => {
                 if (fs.existsSync(setFilePath('/public' + added.thumbnail))) {
                     fs.unlinkSync(setFilePath('/public' + added.thumbnail));
                 }
-                await uploadImg(files.file, added, true);
+
+                const picPath = prepareFileInfo(files.file.newFilename, '/public/img/games/');
+
+                const {mainImage, thumbnail} =  await uploadFile(files.file, '/public/',  {
+                    mainImage: true,
+                    mainImagePath: picPath,
+                    mainImageWidth: 600,
+                    mainImageHeight: null,
+                    thumbnail: true,
+                    thumbnailPath: prepareFileInfo(files.file,
+                        '/public/img/games/thumbnails/',
+                        picPath.substring(picPath.lastIndexOf('/')+1)),
+                    thumbnailWidth: 240,
+                    thumbnailHeight: null,
+                });
+
+                added.image = mainImage.substring(mainImage.indexOf('/img'));
+
+                added.thumbnail = thumbnail.substring(thumbnail.indexOf('/img'));
+
             }
 
             if (keys.length) {
+
                 if (!added.images) {
                     added.images = []
                 }
-                await Promise.all(keys.map(async (key) => {
-                    await uploadImg(files[key], added, false);
+
+                const images = await Promise.all(keys.map(async (key, index) => {
+
+                    const picPath = prepareFileInfo(files[key].newFilename, '/public/img/games/pics/');
+
+                    return await uploadFile(files[key], '/public/', {
+                        multipleImages: true,
+                        multipleImagesPath: picPath,
+                        multipleImagesWidth: 1920,
+                        multipleImagesHeight: null,
+                        multipleImagesThumbnail: true,
+                        multipleImagesThumbnailPath: prepareFileInfo(files.file,
+                            '/public/img/games/pics/thumbnails/',
+                            picPath.substring(picPath.lastIndexOf('/')+1)),
+                        multipleImagesThumbnailWidth: 240,
+                        multipleImagesThumbnailHeight: null
+                    });
                 }))
+
+                const newImages = images.map((image)=>{
+
+                    image.pic = image.pic.substring(image.pic.indexOf('/img'));
+                    image.thumbnail = image.picThumbnail.substring(image.picThumbnail.indexOf('/img'));
+
+                    return {pic : image.pic, thumbnail: image.thumbnail}
+                })
+
+                added.images.push(...newImages)
+
             }
 
             await db.collection('games').doc(added.slug).update(added);
@@ -111,63 +153,3 @@ export default defineEventHandler(async (event) => {
         }
     }
 })
-
-async function uploadImg(file, added, mainImg = false) {
-
-    let uploadPath = file.filepath;
-    let fileName = file.newFilename;
-    let ext = fileName.substring(fileName.indexOf('.') + 1);
-
-    let nameWithSalt = Date.now() + getRandom(10000000, 1) + (+new Date).toString(36).slice(-5);
-
-    let newPath = setFilePath('/public/img/games/' + nameWithSalt + '.' + ext);
-    let thumbnail = setFilePath('/public/img/games/thumbnails/' + nameWithSalt + '.' + ext);
-    let picPath = setFilePath('/public/img/games/pics/' + nameWithSalt + '.' + ext);
-    let picThumbPath = setFilePath('/public/img/games/pics/thumbnails/' + nameWithSalt + '.' + ext);
-
-    if (mainImg) {
-        added.image = newPath.substring(newPath.indexOf('/img'));
-        added.thumbnail = thumbnail.substring(thumbnail.indexOf('/img'));
-
-        im.resize({
-            srcPath: uploadPath,
-            dstPath: newPath,
-            width: 600,
-        }, function (err, stdout, stderr) {
-            if (err) throw err;
-        });
-
-
-        im.resize({
-            srcPath: uploadPath,
-            dstPath: thumbnail,
-            width: 240,
-        }, function (err, stdout, stderr) {
-            if (err) throw err;
-        });
-
-    } else {
-
-        added.images.push({pic: picPath.substring(picPath.indexOf('/img')),
-            thumbnail: picThumbPath.substring(picThumbPath.indexOf('/img'))});
-
-        im.resize({
-            srcPath: uploadPath,
-            dstPath: picPath,
-            width: 1920,
-        }, function (err, stdout, stderr) {
-            if (err) throw err;
-        });
-
-        im.resize({
-            srcPath: uploadPath,
-            dstPath: picThumbPath,
-            width: 240,
-        }, function (err, stdout, stderr) {
-            if (err) throw err;
-        });
-
-    }
-
-}
-

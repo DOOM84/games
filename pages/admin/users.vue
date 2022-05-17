@@ -101,7 +101,7 @@
             {{ row.displayName }}
         </table-body>
         <table-body>
-          <img :src="row.photoURL.substring(row.photoURL.indexOf('/img'))" alt="">
+          <img :src="row.photoURL" alt="">
         </table-body>
         <table-body>
           {{ row.email }}

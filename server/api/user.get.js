@@ -1,9 +1,10 @@
 import admin from 'firebase-admin';
+import {useCookie} from "h3";
 
 export default defineEventHandler(async (event) => {
     try {
 
-        let {token} = useQuery(event)
+        const token = useCookie(event.req, 'token') || useQuery(event).token;
 
         const userInfo = await admin.auth().verifyIdToken(token);
         const user = await admin.auth().getUser(userInfo.uid);

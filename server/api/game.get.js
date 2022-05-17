@@ -8,7 +8,13 @@ export default defineEventHandler(async (event) => {
 
         const game = (await db.collection('games').doc(id).get()).data();
 
-        if(!game){ throw new Error()}
+        if(!game || !game.status){
+                const e = new Error('Not found');
+                e.code = '404';
+                e.statusCode = 404;
+
+                await Promise.reject(e);
+        }
 
 
         const reviewsSnap = await (db.collection('reviews')

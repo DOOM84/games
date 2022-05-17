@@ -8,13 +8,17 @@
       </button>
     </div>
 
-    <div v-if="loader" class="center mb-1">
+
+    <ClientOnly>
+    <div v-if="pending" class="center mb-1">
       <i class="fas fa-circle-notch fa-spin fa-3x grey"></i>
     </div>
 
-    <div v-if="comments.length" v-for="(comment, i) in comments" class="mb-2 comment-box" :id="comment.id">
+    <div v-else v-for="(comment, i) in comments" class="mb-2 comment-box" :id="comment.id">
       <TheCommentItem :comment="comment"/>
     </div>
+
+    </ClientOnly>
 
     <div class="ml-1 mr-1">
       <div v-if="parentInfo" class="d-flex mb-1 center comment-reply">
@@ -37,9 +41,10 @@
 </template>
 
 <script setup>
-import {ref, onMounted, watch} from 'vue';
+import {ref, watch} from 'vue';
 
 const {$showToast, $logOut, $scrollTo} = useNuxtApp();
+
 
 const route = useRoute();
 
@@ -49,15 +54,20 @@ const parentInfo = useParentInfo();
 
 const commentsForReview = useCommentsToggle();
 
+const { pending, data: comments } = commentsForReview.value ?
+    await useLazyAsyncData('reviewComments', () => $fetch('/api/comments/review/loadComments',
+        {params: {id: commentsForReview.value}}), {initialCache: false}) :
+    await useLazyAsyncData('gameComments', () => $fetch('/api/comments/game/loadComments',
+        {params: {id: route.params.id}}), {initialCache: false})
+
 const commentsAfterDel = usePostComments();
 
 const commentBody = ref('');
 
-const comments = ref([]);
-
 const loader = ref(false);
 
 watch(commentsAfterDel, (newVal) => {
+
 
   if (newVal) {
     comments.value = [...newVal];
@@ -79,24 +89,8 @@ watch(route, () => {
   parentId.value = null;
 })
 
-onMounted((async () => {
-
-  await getComments();
-
-}))
-
 async function getComments() {
-  loader.value = true;
-
-  const {gameComments} = commentsForReview.value ?
-      await $fetch('/api/comments/review/loadComments',
-          {params: {id: commentsForReview.value}}) :
-      await $fetch('/api/comments/game/loadComments',
-          {params: {id: route.params.id}})
-
-
-  comments.value = [...gameComments];
-  loader.value = false;
+  refreshNuxtData(commentsForReview.value ? 'reviewComments' : 'gameComments')
 }
 
 function writeComment() {

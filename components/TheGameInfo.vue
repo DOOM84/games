@@ -28,9 +28,13 @@
         </div>
       </tab>
       <tab name="Скриншоты">
-        <lightgallery
-            :settings="{ speed: 500, plugins: [lgZoom], licenseKey: '12345_example' }"
-        >
+        <lightgallery :settings="{
+      mobileSettings:{controls: true, showCloseIcon: true, download: true},
+      toggleThumb: true,
+          allowMediaOverlap: true,
+       speed: 500,
+       plugins: [$lgZoom(), $lgThumbnail(), $lgFullScreen()],
+       licenseKey: '12345_example'}">
           <a class="mr-1" v-for="image in game.images" :href="image.pic">
             <img :src="image.thumbnail"/>
           </a>
@@ -57,9 +61,6 @@
 </template>
 
 <script setup>
-import styles from 'lightgallery/scss/lightgallery.scss';
-import Lightgallery from 'lightgallery/vue/LightGalleryVue.umd.js';
-import lgZoom from 'lightgallery/plugins/zoom/lg-zoom.umd.js';
 
 const props = defineProps({
   game: {type: Object},
